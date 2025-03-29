@@ -1,22 +1,18 @@
 const express = require("express");
-const router = express.Router();
 const Category = require("../models/Category");
 
-// Get all categories with pagination
+const router = express.Router();
+
+// Get all categories (with pagination)
 router.get("/", async (req, res) => {
   try {
     let { page, limit } = req.query;
 
-    // Convert to numbers and set default values
     page = parseInt(page) || 1; // Default: page 1
     limit = parseInt(limit) || 10; // Default: 10 categories per page
 
-    const skip = (page - 1) * limit; // Calculate how many categories to skip
-
-    // Fetch paginated categories
+    const skip = (page - 1) * limit;
     const categories = await Category.find().skip(skip).limit(limit);
-
-    // Count total categories for pagination metadata
     const totalCategories = await Category.countDocuments();
 
     res.json({
@@ -34,9 +30,21 @@ router.get("/", async (req, res) => {
 // Create a new category
 router.post("/", async (req, res) => {
   try {
-    const newCategory = new Category(req.body);
+    const { name, slug } = req.body;
+
+    if (!name || !slug) {
+      return res.status(400).json({ success: false, message: "Name and slug are required" });
+    }
+
+    const existingCategory = await Category.findOne({ slug });
+    if (existingCategory) {
+      return res.status(400).json({ success: false, message: "Category slug already exists" });
+    }
+
+    const newCategory = new Category({ name, slug });
     await newCategory.save();
-    res.json(newCategory);
+
+    res.status(201).json({ success: true, category: newCategory });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }

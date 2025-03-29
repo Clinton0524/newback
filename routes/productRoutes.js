@@ -1,30 +1,48 @@
-const express = require('express');
-const router = express.Router();
-const Product = require('../models/Product');
+const express = require("express");
+const mongoose = require("mongoose");
+const Product = require("../models/Product");
 
-// Get all products
-router.get('/', async (req, res) => {
-  try {
-    const products = await Product.find().populate('category');
-    res.json(products);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+const router = express.Router();
+
+// Get all products (with optional category filtering)
+router.get("/", async (req, res) => {
+    try {
+      const { category } = req.query;
+      let filter = {};
+  
+      if (category) {
+        filter.category = category; // Filter by category
+      }
+  
+      const products = await Product.find(filter).populate("category");
+      res.json({ success: true, count: products.length, products });
+    } catch (err) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+  
 
 // Create a new product
 router.post("/", async (req, res) => {
-    try {
-      // Convert category to ObjectId
-      req.body.category = new mongoose.Types.ObjectId(req.body.category);
-  
-      const newProduct = new Product(req.body);     
-      await newProduct.save();
-  
-      res.status(201).json(newProduct);
-    } catch (err) {
-      res.status(400).json({ error: err.message });
+  try {
+    const { name, price, category } = req.body;
+
+    if (!name || !price || !category) {
+      return res.status(400).json({ success: false, message: "All fields are required" });
     }
-  });
+
+    // Ensure category is a valid ObjectId
+    if (!mongoose.Types.ObjectId.isValid(category)) {
+      return res.status(400).json({ success: false, message: "Invalid category ID" });
+    }
+
+    const newProduct = new Product({ name, price, category });
+    await newProduct.save();
+
+    res.status(201).json({ success: true, product: newProduct });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
 
 module.exports = router;
