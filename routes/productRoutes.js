@@ -18,7 +18,7 @@ router.post("/", async (req, res) => {
       // Convert category to ObjectId
       req.body.category = new mongoose.Types.ObjectId(req.body.category);
   
-      const newProduct = new Product(req.body);
+      const newProduct = new Product(req.body);     
       await newProduct.save();
   
       res.status(201).json(newProduct);
