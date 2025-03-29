@@ -22,26 +22,25 @@ router.get("/", async (req, res) => {
   });
   
   router.get("/:id", async (req, res) => {
-    try {
-      const { id } = req.params;
-  
-      // Validate if the ID is a valid MongoDB ObjectId
-      if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({ success: false, message: "Invalid product ID" });
-      }
-  
-      const product = await Product.findById(id).populate("category");
-  
-      if (!product) {
-        return res.status(404).json({ success: false, message: "Product not found" });
-      }
-  
-      res.json({ success: true, product });
-    } catch (err) {
-      res.status(500).json({ success: false, error: err.message });
-    }
-  });
+  try {
+    const { id } = req.params;
 
+    // ✅ Check if ID is a valid MongoDB ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: "Invalid product ID" });
+    }
+
+    const product = await Product.findById(id).populate("category");
+
+    if (!product) {
+      return res.status(404).json({ success: false, message: "Product not found" });
+    }
+
+    res.json({ success: true, product });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 // Create a new product
 router.post("/", async (req, res) => {
   try {
