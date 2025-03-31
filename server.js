@@ -31,6 +31,10 @@ app.use('/api/categories', categoryRoutes);
 const productRoutes = require('./routes/productRoutes');
 app.use('/api/products', productRoutes);
 
+const bannerRoutes = require("./routes/bannerRoutes");
+app.use("/api/banners", bannerRoutes);
+
+
 // Server Port
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
