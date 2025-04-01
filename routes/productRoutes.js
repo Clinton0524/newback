@@ -63,7 +63,7 @@ router.post("/", async (req, res) => {
     res.status(400).json({ success: false, error: err.message });
   }
 });
-app.delete("/api/products/:id", async (req, res) => {
+router.delete("/api/products/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const deletedProduct = await Product.findByIdAndDelete(id);
