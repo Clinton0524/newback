@@ -63,16 +63,23 @@ router.post("/", async (req, res) => {
     res.status(400).json({ success: false, error: err.message });
   }
 });
-router.delete("/api/products/:id", async (req, res) => {
+router.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params;
+
+    // ✅ Check if ID is valid
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: "Invalid product ID" });
+    }
+
     const deletedProduct = await Product.findByIdAndDelete(id);
     if (!deletedProduct) {
-      return res.status(404).json({ message: "Product not found" });
+      return res.status(404).json({ success: false, message: "Product not found" });
     }
-    res.json({ message: "Product deleted successfully" });
+
+    res.json({ success: true, message: "Product deleted successfully" });
   } catch (error) {
-    res.status(500).json({ message: "Server error", error: error.message });
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
