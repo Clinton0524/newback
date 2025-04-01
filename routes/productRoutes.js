@@ -6,26 +6,26 @@ const router = express.Router();
 
 // Get all products (with optional category filtering)
 router.get("/", async (req, res) => {
-    try {
-      const { category } = req.query;
-      let filter = {};
-  
-      if (category) {
-        filter.category = category; // Filter by category
-      }
-  
-      const products = await Product.find(filter).populate("category");
-      res.json({ success: true, count: products.length, products });
-    } catch (err) {
-      res.status(500).json({ success: false, error: err.message });
+  try {
+    const { category } = req.query;
+    let filter = {};
+
+    if (category) {
+      filter.category = category;
     }
-  });
-  
-  router.get("/:id", async (req, res) => {
+
+    const products = await Product.find(filter).populate("category");
+    res.json({ success: true, count: products.length, products });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Get a single product by ID
+router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
-    // ✅ Check if ID is a valid MongoDB ObjectId
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ success: false, message: "Invalid product ID" });
     }
@@ -41,6 +41,7 @@ router.get("/", async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
 // Create a new product
 router.post("/", async (req, res) => {
   try {
@@ -50,7 +51,6 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ success: false, message: "All fields are required" });
     }
 
-    // Ensure category is a valid ObjectId
     if (!mongoose.Types.ObjectId.isValid(category)) {
       return res.status(400).json({ success: false, message: "Invalid category ID" });
     }
@@ -63,11 +63,34 @@ router.post("/", async (req, res) => {
     res.status(400).json({ success: false, error: err.message });
   }
 });
+
+// ✅ Update an existing product
+router.put("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: "Invalid product ID" });
+    }
+
+    const updatedProduct = await Product.findByIdAndUpdate(id, updateData, { new: true });
+
+    if (!updatedProduct) {
+      return res.status(404).json({ success: false, message: "Product not found" });
+    }
+
+    res.json({ success: true, message: "Product updated successfully", product: updatedProduct });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Delete a product
 router.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
-    // ✅ Check if ID is valid
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ success: false, message: "Invalid product ID" });
     }
