@@ -4,24 +4,53 @@ const Product = require("../models/Product");
 
 const router = express.Router();
 
-// Get all products (with optional category filtering)
+// ✅ Get all products (with search & filtering)
 router.get("/", async (req, res) => {
   try {
-    const { category } = req.query;
+    const { category, name, minPrice, maxPrice, inStock, sort } = req.query;
     let filter = {};
 
-    if (category) {
+    // 🔹 Filter by Category (if provided)
+    if (category && mongoose.Types.ObjectId.isValid(category)) {
       filter.category = category;
     }
 
-    const products = await Product.find(filter).populate("category");
+    // 🔹 Search by Name (Case-Insensitive)
+    if (name) {
+      filter.name = { $regex: name, $options: "i" };
+    }
+
+    // 🔹 Filter by Price Range
+    if (minPrice || maxPrice) {
+      filter.price = {};
+      if (minPrice) filter.price.$gte = parseFloat(minPrice);
+      if (maxPrice) filter.price.$lte = parseFloat(maxPrice);
+    }
+
+    // 🔹 Filter by Stock Availability
+    if (inStock === "true") {
+      filter.stock = { $gt: 0 }; // Only available products
+    } else if (inStock === "false") {
+      filter.stock = 0; // Only out-of-stock products
+    }
+
+    // 🔹 Sorting (e.g., ?sort=price_asc or ?sort=name_desc)
+    let sortOptions = {};
+    if (sort) {
+      const [field, order] = sort.split("_");
+      sortOptions[field] = order === "desc" ? -1 : 1;
+    }
+
+    // Fetch products with filters and sorting
+    const products = await Product.find(filter).populate("category").sort(sortOptions);
+
     res.json({ success: true, count: products.length, products });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// Get a single product by ID
+// ✅ Get a single product by ID
 router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;
@@ -42,7 +71,7 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// Create a new product
+// ✅ Create a new product
 router.post("/", async (req, res) => {
   try {
     const { name, price, category } = req.body;
@@ -55,7 +84,7 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid category ID" });
     }
 
-    const newProduct = new Product({ name, price, category });
+    const newProduct = new Product({ ...req.body });
     await newProduct.save();
 
     res.status(201).json({ success: true, product: newProduct });
@@ -86,7 +115,7 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-// Delete a product
+// ✅ Delete a product
 router.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params;
