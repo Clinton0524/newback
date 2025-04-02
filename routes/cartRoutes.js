@@ -121,11 +121,8 @@ router.put("/increase", async (req, res) => {
         if (!userId && !sessionId) {
             return res.status(400).json({ success: false, message: "User ID or session ID required" });
         }
-        const updatedCart = await Cart.findOne(userId ? { userId } : { sessionId }).populate("items.productId");
 
-        res.status(200).json({ success: true, message: "Quantity updated", cart: updatedCart });
-        
-        const cart = await Cart.findOne(userId ? { userId } : { sessionId });
+        const cart = await Cart.findOne(userId ? { userId } : { sessionId }).populate("items.productId");
         if (!cart) return res.status(404).json({ success: false, message: "Cart not found" });
 
         const item = cart.items.find(item => item.productId.equals(productId));
@@ -135,7 +132,7 @@ router.put("/increase", async (req, res) => {
             return res.status(200).json({ success: true, message: "Quantity increased", cart });
         }
 
-        res.status(404).json({ success: false, message: "Item not found in cart" });
+        return res.status(404).json({ success: false, message: "Item not found in cart" });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
@@ -153,11 +150,8 @@ router.put("/decrease", async (req, res) => {
         if (!userId && !sessionId) {
             return res.status(400).json({ success: false, message: "User ID or session ID required" });
         }
-        const updatedCart = await Cart.findOne(userId ? { userId } : { sessionId }).populate("items.productId");
 
-        res.status(200).json({ success: true, message: "Quantity updated", cart: updatedCart });
-        
-        const cart = await Cart.findOne(userId ? { userId } : { sessionId });
+        const cart = await Cart.findOne(userId ? { userId } : { sessionId }).populate("items.productId");
         if (!cart) return res.status(404).json({ success: false, message: "Cart not found" });
 
         const itemIndex = cart.items.findIndex(item => item.productId.equals(productId));
@@ -171,7 +165,7 @@ router.put("/decrease", async (req, res) => {
             return res.status(200).json({ success: true, message: "Quantity decreased", cart });
         }
 
-        res.status(404).json({ success: false, message: "Item not found in cart" });
+        return res.status(404).json({ success: false, message: "Item not found in cart" });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
