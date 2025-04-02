@@ -11,7 +11,7 @@ router.post("/add", async (req, res) => {
     try {
         let { userId, productId, quantity, sessionId } = req.body;
 
-        if (!mongoose.Types.ObjectId.isValid(productId)) {
+        if (!productId || !mongoose.Types.ObjectId.isValid(productId)) {
             return res.status(400).json({ success: false, message: "Invalid product ID" });
         }
 
@@ -20,37 +20,39 @@ router.post("/add", async (req, res) => {
         }
 
         const product = await Product.findById(productId);
-        if (!product) return res.status(404).json({ success: false, message: "Product not found" });
+        if (!product) {
+            return res.status(404).json({ success: false, message: "Product not found" });
+        }
 
         if (!userId && !sessionId) {
-            sessionId = uuidv4(); // Generate a new session ID for guest users
+            sessionId = uuidv4(); // Generate a session ID for guest users
         }
 
         let cart = await Cart.findOne(userId ? { userId } : { sessionId });
 
-        if (cart) {
+        if (!cart) {
+            cart = new Cart({
+                userId: userId || null,
+                sessionId: userId ? null : sessionId,
+                items: [{ productId, quantity }],
+            });
+        } else {
             const itemIndex = cart.items.findIndex(item => item.productId.equals(productId));
             if (itemIndex > -1) {
                 cart.items[itemIndex].quantity += quantity;
             } else {
                 cart.items.push({ productId, quantity });
             }
-        } else {
-            cart = new Cart({
-                userId: userId || null,
-                sessionId: userId ? null : sessionId,
-                items: [{ productId, quantity }],
-            });
         }
 
         await cart.save();
-        res.json({ success: true, message: "Product added to cart", cart, sessionId });
+        res.status(200).json({ success: true, message: "Product added to cart", cart, sessionId });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
 });
 
-// ✅ Get user's cart (supports both userId and sessionId)
+// ✅ Get user's cart
 router.get("/cart", async (req, res) => {
     try {
         const { userId, sessionId } = req.query;
@@ -61,22 +63,18 @@ router.get("/cart", async (req, res) => {
 
         const cart = await Cart.findOne(userId ? { userId } : { sessionId }).populate("items.productId");
 
-        if (!cart) {
-            return res.json({ success: true, cart: { items: [] } });
-        }
-
-        res.json({ success: true, cart });
+        res.status(200).json({ success: true, cart: cart || { items: [] } });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
 });
 
-// ✅ Remove an item from the cart (supports both userId and sessionId)
+// ✅ Remove an item from cart
 router.delete("/remove", async (req, res) => {
     try {
         const { userId, sessionId, productId } = req.body;
 
-        if (!mongoose.Types.ObjectId.isValid(productId)) {
+        if (!productId || !mongoose.Types.ObjectId.isValid(productId)) {
             return res.status(400).json({ success: false, message: "Invalid product ID" });
         }
 
@@ -88,15 +86,15 @@ router.delete("/remove", async (req, res) => {
         if (!cart) return res.status(404).json({ success: false, message: "Cart not found" });
 
         cart.items = cart.items.filter(item => !item.productId.equals(productId));
-
         await cart.save();
-        res.json({ success: true, message: "Item removed from cart", cart });
+
+        res.status(200).json({ success: true, message: "Item removed from cart", cart });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
 });
 
-// ✅ Clear entire cart (supports both userId and sessionId)
+// ✅ Clear entire cart
 router.delete("/clear", async (req, res) => {
     try {
         const { userId, sessionId } = req.body;
@@ -106,7 +104,7 @@ router.delete("/clear", async (req, res) => {
         }
 
         await Cart.findOneAndDelete(userId ? { userId } : { sessionId });
-        res.json({ success: true, message: "Cart cleared" });
+        res.status(200).json({ success: true, message: "Cart cleared" });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
