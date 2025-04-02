@@ -9,7 +9,7 @@ router.get("/", async (req, res) => {
     let { page, limit } = req.query;
 
     page = parseInt(page) || 1; // Default: page 1
-    limit = parseInt(limit) || 8; // Default: 10 categories per page
+    limit = parseInt(limit) || 10; // Default: 10 categories per page
 
     const skip = (page - 1) * limit;
     const categories = await Category.find().skip(skip).limit(limit);
