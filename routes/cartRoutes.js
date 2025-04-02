@@ -121,7 +121,10 @@ router.put("/increase", async (req, res) => {
         if (!userId && !sessionId) {
             return res.status(400).json({ success: false, message: "User ID or session ID required" });
         }
+        const updatedCart = await Cart.findOne(userId ? { userId } : { sessionId }).populate("items.productId");
 
+        res.status(200).json({ success: true, message: "Quantity updated", cart: updatedCart });
+        
         const cart = await Cart.findOne(userId ? { userId } : { sessionId });
         if (!cart) return res.status(404).json({ success: false, message: "Cart not found" });
 
@@ -150,7 +153,10 @@ router.put("/decrease", async (req, res) => {
         if (!userId && !sessionId) {
             return res.status(400).json({ success: false, message: "User ID or session ID required" });
         }
+        const updatedCart = await Cart.findOne(userId ? { userId } : { sessionId }).populate("items.productId");
 
+        res.status(200).json({ success: true, message: "Quantity updated", cart: updatedCart });
+        
         const cart = await Cart.findOne(userId ? { userId } : { sessionId });
         if (!cart) return res.status(404).json({ success: false, message: "Cart not found" });
 
