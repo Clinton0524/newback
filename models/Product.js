@@ -8,7 +8,8 @@ const productSchema = new mongoose.Schema({
   description: { type: String },
   stock: { type: Number, default: 0 },
   imageUrl: { type: String },
-  weight: {type:String}
+  weight: {type:String},
+  isExclusive: { type: Boolean, default: false } // Add this field
 });
 
 module.exports = mongoose.model('Product', productSchema);

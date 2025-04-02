@@ -49,6 +49,15 @@ router.get("/", async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+//get exclusive products
+router.get("/exclusive", async (req, res) => {
+  try {
+    const exclusiveProducts = await Product.find({ isExclusive: true }).populate("category");
+    res.json({ success: true, products: exclusiveProducts });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
 
 // ✅ Get a single product by ID
 router.get("/:id", async (req, res) => {
