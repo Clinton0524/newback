@@ -109,5 +109,67 @@ router.delete("/clear", async (req, res) => {
         res.status(500).json({ success: false, error: err.message });
     }
 });
+// ✅ Increase Quantity of an Item in Cart
+router.put("/increase", async (req, res) => {
+    try {
+        const { userId, sessionId, productId } = req.body;
+
+        if (!productId || !mongoose.Types.ObjectId.isValid(productId)) {
+            return res.status(400).json({ success: false, message: "Invalid product ID" });
+        }
+
+        if (!userId && !sessionId) {
+            return res.status(400).json({ success: false, message: "User ID or session ID required" });
+        }
+
+        const cart = await Cart.findOne(userId ? { userId } : { sessionId });
+        if (!cart) return res.status(404).json({ success: false, message: "Cart not found" });
+
+        const item = cart.items.find(item => item.productId.equals(productId));
+        if (item) {
+            item.quantity += 1; // Increase quantity
+            await cart.save();
+            return res.status(200).json({ success: true, message: "Quantity increased", cart });
+        }
+
+        res.status(404).json({ success: false, message: "Item not found in cart" });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// ✅ Decrease Quantity of an Item in Cart
+router.put("/decrease", async (req, res) => {
+    try {
+        const { userId, sessionId, productId } = req.body;
+
+        if (!productId || !mongoose.Types.ObjectId.isValid(productId)) {
+            return res.status(400).json({ success: false, message: "Invalid product ID" });
+        }
+
+        if (!userId && !sessionId) {
+            return res.status(400).json({ success: false, message: "User ID or session ID required" });
+        }
+
+        const cart = await Cart.findOne(userId ? { userId } : { sessionId });
+        if (!cart) return res.status(404).json({ success: false, message: "Cart not found" });
+
+        const itemIndex = cart.items.findIndex(item => item.productId.equals(productId));
+        if (itemIndex > -1) {
+            if (cart.items[itemIndex].quantity > 1) {
+                cart.items[itemIndex].quantity -= 1; // Decrease quantity
+            } else {
+                cart.items.splice(itemIndex, 1); // Remove item if quantity is 1
+            }
+            await cart.save();
+            return res.status(200).json({ success: true, message: "Quantity decreased", cart });
+        }
+
+        res.status(404).json({ success: false, message: "Item not found in cart" });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
 
 module.exports = router;
