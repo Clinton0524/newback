@@ -12,7 +12,7 @@ router.get("/", async (req, res) => {
     limit = parseInt(limit) || 10; // Default: 10 categories per page
 
     const skip = (page - 1) * limit;
-    const categories = await Category.find().skip(skip).limit(limit);
+    const categories = await Category.find().skip(skip).limit(limit).sort({ createdAt: 1 });
     const totalCategories = await Category.countDocuments();
 
     res.json({
