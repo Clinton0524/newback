@@ -1,100 +1,67 @@
 const express = require("express");
-const { check, validationResult } = require("express-validator");
 const User = require("../models/User");
-const generateToken = require("../utils/jwt");
-const protect = require("../middleware/authMiddleware");
+const jwt = require("jsonwebtoken");
+const { protect } = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
-// ✅ Register User
-router.post(
-  "/register",
-  [
-    check("name", "Name is required").not().isEmpty(),
-    check("email", "Please include a valid email").isEmail(),
-    check("password", "Password must be at least 6 characters").isLength({ min: 6 }),
-  ],
-  async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
+const generateToken = (res, userId) => {
+  const token = jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: "1h" });
 
-    const { name, email, password } = req.body;
-    try {
-      let user = await User.findOne({ email });
-      if (user) return res.status(400).json({ message: "User already exists" });
+  res.cookie("jwt", token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+    maxAge: 3600000, // 1 hour
+  });
+};
 
-      user = new User({ name, email, password });
-      await user.save();
+// Register
+router.post("/register", async (req, res) => {
+  const { name, email, password, role } = req.body;
 
-      res.status(201).json({
-        success: true,
-        message: "User registered successfully",
-        token: generateToken(user._id),
-      });
-    } catch (err) {
-      res.status(500).json({ success: false, error: err.message });
-    }
-  }
-);
-
-// ✅ Login User
-router.post("/login", [
-  check("email", "Please include a valid email").isEmail(),
-  check("password", "Password is required").exists(),
-], async (req, res) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-  }
-
-  const { email, password, sessionId } = req.body;
   try {
-      const user = await User.findOne({ email });
-      if (!user || !(await user.matchPassword(password))) {
-          return res.status(401).json({ message: "Invalid email or password" });
-      }
+    let user = await User.findOne({ email });
+    if (user) return res.status(400).json({ message: "User already exists" });
 
-      // Check for guest cart
-      if (sessionId) {
-          const guestCart = await Cart.findOne({ sessionId });
-          let userCart = await Cart.findOne({ userId: user._id });
+    user = new User({ name, email, password, role });
+    await user.save();
 
-          if (guestCart) {
-              if (userCart) {
-                  // Merge guest cart into user cart
-                  guestCart.items.forEach(guestItem => {
-                      const existingItem = userCart.items.find(item => item.productId.equals(guestItem.productId));
-                      if (existingItem) {
-                          existingItem.quantity += guestItem.quantity;
-                      } else {
-                          userCart.items.push(guestItem);
-                      }
-                  });
-                  await userCart.save();
-              } else {
-                  // Assign guest cart to user
-                  guestCart.userId = user._id;
-                  guestCart.sessionId = null; // Remove session binding
-                  await guestCart.save();
-              }
-          }
-      }
-
-      res.status(200).json({
-          success: true,
-          message: "Login successful",
-          token: generateToken(user._id),
-      });
-  } catch (err) {
-      res.status(500).json({ success: false, error: err.message });
+    generateToken(res, user._id);
+    res.status(201).json({ message: "User registered successfully", user });
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
   }
 });
 
-// ✅ Get User Details (Protected Route)
-router.get("/me", protect, async (req, res) => {
-  res.status(200).json({ success: true, user: req.user });
+// Login
+router.post("/login", async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+    if (!user) return res.status(400).json({ message: "Invalid credentials" });
+
+    const isMatch = await user.matchPassword(password);
+    if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
+
+    generateToken(res, user._id);
+    res.status(200).json({ message: "Logged in successfully", user });
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// Logout
+router.post("/logout", (req, res) => {
+  res.cookie("jwt", "", { maxAge: 1 });
+  res.json({ message: "Logged out successfully" });
+});
+
+// Get User Profile (Protected)
+router.get("/profile", protect, async (req, res) => {
+  const user = await User.findById(req.user.id).select("-password");
+  res.json(user);
 });
 
 module.exports = router;

@@ -2,11 +2,14 @@ require("dotenv").config();
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
+const cookieParser = require("cookie-parser");
+const { protect, authorize } = require("./middleware/authMiddleware");
 
 const app = express();
 
 // Middleware
 app.use(express.json());
+app.use(cookieParser());
 
 // CORS Configuration
 app.use(
@@ -45,6 +48,11 @@ app.use("/api/orders", orderRoutes);
 
 const authRoutes = require("./routes/authRoutes");
 app.use("/api/auth", authRoutes);
+
+// Protected Admin Route Example
+app.get("/api/admin", protect, authorize("admin"), (req, res) => {
+  res.json({ message: "Welcome Admin! This is a protected route." });
+});
 
 // Server Port
 const PORT = process.env.PORT || 5000;
