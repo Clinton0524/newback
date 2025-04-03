@@ -2,27 +2,28 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 
 const protect = async (req, res, next) => {
-  let token;
+  try {
+    const token = req.header("Authorization")?.split(" ")[1];
+    if (!token) return res.status(401).json({ message: "Unauthorized" });
 
-  if (req.cookies.jwt) {
-    try {
-      token = req.cookies.jwt;
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      req.user = await User.findById(decoded.id).select("-password");
-      next();
-    } catch (error) {
-      res.status(401).json({ message: "Not authorized, token failed" });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = await User.findById(decoded.id).select("-password");
+
+    if (!req.user) return res.status(401).json({ message: "Unauthorized" });
+
+    next(); // Ensure next() is called
+  } catch (err) {
+    res.status(401).json({ message: "Invalid Token" });
+  }
+};
+
+const authorize =
+  (...roles) =>
+  (req, res, next) => {
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({ message: "Forbidden: Access denied" });
     }
-  } else {
-    res.status(401).json({ message: "Not authorized, no token" });
-  }
-};
-
-const authorize = (...roles) => (req, res, next) => {
-  if (!roles.includes(req.user.role)) {
-    return res.status(403).json({ message: "Forbidden: Access denied" });
-  }
-  next();
-};
+    next();
+  };
 
 module.exports = { protect, authorize };
