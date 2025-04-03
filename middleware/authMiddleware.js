@@ -3,13 +3,13 @@ const User = require("../models/User");
 
 // Protect middleware
 const protect = async (req, res, next) => {
+    let token = req.headers.authorization?.split(" ")[1]; // Extract token from Authorization header
+
+    if (!token) {
+        return res.status(401).json({ message: "Not authorized, no token" });
+    }
+
     try {
-        const token = req.cookies.jwt; // Get token from cookies
-
-        if (!token) {
-            return res.status(401).json({ message: "Not authorized, no token" });
-        }
-
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         req.user = await User.findById(decoded.id).select("-password");
 
@@ -17,12 +17,13 @@ const protect = async (req, res, next) => {
             return res.status(401).json({ message: "User not found" });
         }
 
-        next(); // Continue to next middleware/controller
+        next();
     } catch (error) {
-        res.status(401).json({ message: "Invalid token" });
+        return res.status(401).json({ message: "Invalid token" });
     }
 };
 
+module.exports = { protect };
 // ✅ Role-based authorization middleware
 const authorize = (...roles) => {
     return (req, res, next) => {
