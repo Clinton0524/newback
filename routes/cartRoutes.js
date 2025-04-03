@@ -3,13 +3,15 @@ const mongoose = require("mongoose");
 const { v4: uuidv4 } = require("uuid");
 const Cart = require("../models/Cart");
 const Product = require("../models/Product");
+const protect = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
-// ✅ Add a product to the cart
+// ✅ Add a product to the cart (Supports Authenticated Users & Guests)
 router.post("/add", async (req, res) => {
     try {
-        let { userId, productId, quantity, sessionId } = req.body;
+        let { productId, quantity, sessionId } = req.body;
+        const userId = req.user ? req.user._id : null; // Get user ID if authenticated
 
         if (!productId || !mongoose.Types.ObjectId.isValid(productId)) {
             return res.status(400).json({ success: false, message: "Invalid product ID" });
@@ -52,16 +54,10 @@ router.post("/add", async (req, res) => {
     }
 });
 
-// ✅ Get user's cart
-router.get("/cart", async (req, res) => {
+// ✅ Get user's cart (Authenticated users only)
+router.get("/", protect, async (req, res) => {
     try {
-        const { userId, sessionId } = req.query;
-
-        if (!userId && !sessionId) {
-            return res.status(400).json({ success: false, message: "User ID or session ID required" });
-        }
-
-        const cart = await Cart.findOne(userId ? { userId } : { sessionId }).populate("items.productId");
+        const cart = await Cart.findOne({ userId: req.user._id }).populate("items.productId");
 
         res.status(200).json({ success: true, cart: cart || { items: [] } });
     } catch (err) {
@@ -69,10 +65,28 @@ router.get("/cart", async (req, res) => {
     }
 });
 
-// ✅ Remove an item from cart
+// ✅ Get cart for guests
+router.get("/guest", async (req, res) => {
+    try {
+        const { sessionId } = req.query;
+
+        if (!sessionId) {
+            return res.status(400).json({ success: false, message: "Session ID is required" });
+        }
+
+        const cart = await Cart.findOne({ sessionId }).populate("items.productId");
+
+        res.status(200).json({ success: true, cart: cart || { items: [] } });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// ✅ Remove an item from cart (Supports Authenticated Users & Guests)
 router.delete("/remove", async (req, res) => {
     try {
-        const { userId, sessionId, productId } = req.body;
+        const { productId, sessionId } = req.body;
+        const userId = req.user ? req.user._id : null;
 
         if (!productId || !mongoose.Types.ObjectId.isValid(productId)) {
             return res.status(400).json({ success: false, message: "Invalid product ID" });
@@ -94,10 +108,11 @@ router.delete("/remove", async (req, res) => {
     }
 });
 
-// ✅ Clear entire cart
+// ✅ Clear entire cart (Supports Authenticated Users & Guests)
 router.delete("/clear", async (req, res) => {
     try {
-        const { userId, sessionId } = req.body;
+        const userId = req.user ? req.user._id : null;
+        const { sessionId } = req.body;
 
         if (!userId && !sessionId) {
             return res.status(400).json({ success: false, message: "User ID or session ID required" });
@@ -109,10 +124,12 @@ router.delete("/clear", async (req, res) => {
         res.status(500).json({ success: false, error: err.message });
     }
 });
-// ✅ Increase Quantity of an Item in Cart
+
+// ✅ Increase Quantity of an Item in Cart (Supports Authenticated Users & Guests)
 router.put("/increase", async (req, res) => {
     try {
-        const { userId, sessionId, productId } = req.body;
+        const { productId, sessionId } = req.body;
+        const userId = req.user ? req.user._id : null;
 
         if (!productId || !mongoose.Types.ObjectId.isValid(productId)) {
             return res.status(400).json({ success: false, message: "Invalid product ID" });
@@ -122,12 +139,12 @@ router.put("/increase", async (req, res) => {
             return res.status(400).json({ success: false, message: "User ID or session ID required" });
         }
 
-        const cart = await Cart.findOne(userId ? { userId } : { sessionId }).populate("items.productId");
+        const cart = await Cart.findOne(userId ? { userId } : { sessionId });
         if (!cart) return res.status(404).json({ success: false, message: "Cart not found" });
 
         const item = cart.items.find(item => item.productId.equals(productId));
         if (item) {
-            item.quantity += 1; // Increase quantity
+            item.quantity += 1;
             await cart.save();
             return res.status(200).json({ success: true, message: "Quantity increased", cart });
         }
@@ -138,10 +155,11 @@ router.put("/increase", async (req, res) => {
     }
 });
 
-// ✅ Decrease Quantity of an Item in Cart
+// ✅ Decrease Quantity of an Item in Cart (Supports Authenticated Users & Guests)
 router.put("/decrease", async (req, res) => {
     try {
-        const { userId, sessionId, productId } = req.body;
+        const { productId, sessionId } = req.body;
+        const userId = req.user ? req.user._id : null;
 
         if (!productId || !mongoose.Types.ObjectId.isValid(productId)) {
             return res.status(400).json({ success: false, message: "Invalid product ID" });
@@ -151,15 +169,15 @@ router.put("/decrease", async (req, res) => {
             return res.status(400).json({ success: false, message: "User ID or session ID required" });
         }
 
-        const cart = await Cart.findOne(userId ? { userId } : { sessionId }).populate("items.productId");
+        const cart = await Cart.findOne(userId ? { userId } : { sessionId });
         if (!cart) return res.status(404).json({ success: false, message: "Cart not found" });
 
         const itemIndex = cart.items.findIndex(item => item.productId.equals(productId));
         if (itemIndex > -1) {
             if (cart.items[itemIndex].quantity > 1) {
-                cart.items[itemIndex].quantity -= 1; // Decrease quantity
+                cart.items[itemIndex].quantity -= 1;
             } else {
-                cart.items.splice(itemIndex, 1); // Remove item if quantity is 1
+                cart.items.splice(itemIndex, 1);
             }
             await cart.save();
             return res.status(200).json({ success: true, message: "Quantity decreased", cart });
@@ -170,6 +188,5 @@ router.put("/decrease", async (req, res) => {
         res.status(500).json({ success: false, error: err.message });
     }
 });
-
 
 module.exports = router;
