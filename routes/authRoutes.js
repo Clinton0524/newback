@@ -40,35 +40,57 @@ router.post(
 );
 
 // ✅ Login User
-router.post(
-  "/login",
-  [
-    check("email", "Please include a valid email").isEmail(),
-    check("password", "Password is required").exists(),
-  ],
-  async (req, res) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
+router.post("/login", [
+  check("email", "Please include a valid email").isEmail(),
+  check("password", "Password is required").exists(),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
-    }
+  }
 
-    const { email, password } = req.body;
-    try {
+  const { email, password, sessionId } = req.body;
+  try {
       const user = await User.findOne({ email });
       if (!user || !(await user.matchPassword(password))) {
-        return res.status(401).json({ message: "Invalid email or password" });
+          return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      // Check for guest cart
+      if (sessionId) {
+          const guestCart = await Cart.findOne({ sessionId });
+          let userCart = await Cart.findOne({ userId: user._id });
+
+          if (guestCart) {
+              if (userCart) {
+                  // Merge guest cart into user cart
+                  guestCart.items.forEach(guestItem => {
+                      const existingItem = userCart.items.find(item => item.productId.equals(guestItem.productId));
+                      if (existingItem) {
+                          existingItem.quantity += guestItem.quantity;
+                      } else {
+                          userCart.items.push(guestItem);
+                      }
+                  });
+                  await userCart.save();
+              } else {
+                  // Assign guest cart to user
+                  guestCart.userId = user._id;
+                  guestCart.sessionId = null; // Remove session binding
+                  await guestCart.save();
+              }
+          }
       }
 
       res.status(200).json({
-        success: true,
-        message: "Login successful",
-        token: generateToken(user._id),
+          success: true,
+          message: "Login successful",
+          token: generateToken(user._id),
       });
-    } catch (err) {
+  } catch (err) {
       res.status(500).json({ success: false, error: err.message });
-    }
   }
-);
+});
 
 // ✅ Get User Details (Protected Route)
 router.get("/me", protect, async (req, res) => {

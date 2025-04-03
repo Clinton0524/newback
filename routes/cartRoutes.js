@@ -8,15 +8,14 @@ const protect = require("../middleware/authMiddleware");
 const router = express.Router();
 
 // ✅ Add a product to the cart (Supports Authenticated Users & Guests)
-router.post("/add", async (req, res) => {
+router.post("/add", protect, async (req, res) => {
     try {
         let { productId, quantity, sessionId } = req.body;
-        const userId = req.user ? req.user._id : null; // Get user ID if authenticated
+        const userId = req.user ? req.user._id : null;
 
         if (!productId || !mongoose.Types.ObjectId.isValid(productId)) {
             return res.status(400).json({ success: false, message: "Invalid product ID" });
         }
-
         if (!quantity || quantity < 1) {
             return res.status(400).json({ success: false, message: "Quantity must be at least 1" });
         }
@@ -27,7 +26,7 @@ router.post("/add", async (req, res) => {
         }
 
         if (!userId && !sessionId) {
-            sessionId = uuidv4(); // Generate a session ID for guest users
+            return res.status(400).json({ success: false, message: "Session ID required for guest users" });
         }
 
         let cart = await Cart.findOne(userId ? { userId } : { sessionId });
@@ -55,9 +54,20 @@ router.post("/add", async (req, res) => {
 });
 
 // ✅ Get user's cart (Authenticated users only)
-router.get("/", protect, async (req, res) => {
+router.get("/", async (req, res) => {
     try {
-        const cart = await Cart.findOne({ userId: req.user._id }).populate("items.productId");
+        const userId = req.user ? req.user._id : null;
+        const { sessionId } = req.query;
+
+        let cart;
+
+        if (userId) {
+            // Fetch cart for logged-in user
+            cart = await Cart.findOne({ userId }).populate("items.productId");
+        } else if (sessionId) {
+            // Fetch cart for guest users
+            cart = await Cart.findOne({ sessionId }).populate("items.productId");
+        }
 
         res.status(200).json({ success: true, cart: cart || { items: [] } });
     } catch (err) {
@@ -69,19 +79,16 @@ router.get("/", protect, async (req, res) => {
 router.get("/guest", async (req, res) => {
     try {
         const { sessionId } = req.query;
-
         if (!sessionId) {
             return res.status(400).json({ success: false, message: "Session ID is required" });
         }
 
         const cart = await Cart.findOne({ sessionId }).populate("items.productId");
-
         res.status(200).json({ success: true, cart: cart || { items: [] } });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
 });
-
 // ✅ Remove an item from cart (Supports Authenticated Users & Guests)
 router.delete("/remove", async (req, res) => {
     try {
