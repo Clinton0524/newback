@@ -35,22 +35,27 @@ router.post("/register", async (req, res) => {
 });
 
 // Login
+// Login Route (Backend)
 router.post("/login", async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ message: "Invalid credentials" });
+      const user = await User.findOne({ email });
+      if (!user) return res.status(400).json({ message: "Invalid credentials" });
 
-    const isMatch = await user.matchPassword(password);
-    if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
+      const isMatch = await user.matchPassword(password);
+      if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
 
-    generateToken(res, user._id);
-    res.status(200).json({ message: "Logged in successfully", user });
+      // ✅ Generate Token
+      const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
+
+      // ✅ Send token in response
+      res.status(200).json({ message: "Logged in successfully", user, token });
   } catch (error) {
-    res.status(500).json({ message: "Server error" });
+      res.status(500).json({ message: "Server error" });
   }
 });
+
 
 // Logout
 router.post("/logout", (req, res) => {
