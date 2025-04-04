@@ -107,7 +107,11 @@ router.put("/update", protect, async (req, res) => {
         }
 
         await cart.save();
-        res.status(200).json({ success: true, message: "Cart updated", cart });
+       
+        const populatedCart = await Cart.findOne({ userId }).populate("items.productId");
+        
+        res.status(200).json({ success: true, message: "Cart updated", cart: populatedCart });
+        
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
