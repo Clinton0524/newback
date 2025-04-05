@@ -2,8 +2,7 @@ const express = require("express");
 const User = require("../models/User");
 const jwt = require("jsonwebtoken");
 const { protect } = require("../middleware/authMiddleware");
-const crypto = require("crypto");
-const sendEmail = require("../utils/sendEmail");
+
 const router = express.Router();
 
 const generateToken = (res, userId) => {
@@ -25,35 +24,11 @@ router.post("/register", async (req, res) => {
     let user = await User.findOne({ email });
     if (user) return res.status(400).json({ message: "User already exists" });
 
-    const verificationToken = crypto.randomBytes(32).toString("hex");
-    user = new User({ name, email, password, role, verificationToken });
-
+    user = new User({ name, email, password, role });
     await user.save();
 
-    const verifyUrl = `${process.env.CLIENT_URL}/verify-email?token=${verificationToken}`;
-    const message = `<p>Hi ${name},</p>
-                     <p>Please verify your email by clicking the link below:</p>
-                     <a href="${verifyUrl}">Verify Email</a>`;
-
-    await sendEmail(email, "Verify Your Email", message);
-
-    res.status(201).json({ message: "User registered. Please verify your email." });
-  } catch (error) {
-    res.status(500).json({ message: "Server error" });
-  }
-});
-router.get("/verify-email", async (req, res) => {
-  const { token } = req.query;
-
-  try {
-    const user = await User.findOne({ verificationToken: token });
-    if (!user) return res.status(400).json({ message: "Invalid or expired token" });
-
-    user.isVerified = true;
-    user.verificationToken = undefined;
-    await user.save();
-
-    res.json({ message: "Email verified successfully" });
+    generateToken(res, user._id);
+    res.status(201).json({ message: "User registered successfully", user });
   } catch (error) {
     res.status(500).json({ message: "Server error" });
   }
